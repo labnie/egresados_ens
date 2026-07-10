@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <title>Registro de Egresados · ENS "Profr. Enrique Estrada Lucero"</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Vista previa para redes sociales -->
+<meta property="og:type" content="website">
+<meta property="og:title" content='Directorio de Egresados · ENS "Profr. Enrique Estrada Lucero"'>
+<meta property="og:description" content="Regístrate en el directorio de egresados normalistas y mantente informado de las actividades académicas, formativas y laborales del ciclo 2026–2027.">
+<meta property="og:image" content="https://raw.githubusercontent.com/labnie/egresados_ens/main/previa_egreaados.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content='Directorio de Egresados · ENS "Profr. Enrique Estrada Lucero"'>
+<meta name="twitter:description" content="Regístrate en el directorio de egresados normalistas y mantente informado de las actividades académicas, formativas y laborales del ciclo 2026–2027.">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/labnie/egresados_ens/main/previa_egreaados.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,600&family=Sora:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
 
@@ -380,6 +390,10 @@
                 <option>Otra</option>
               </select>
               <div class="error" id="err-lic"></div>
+              <div id="otraLicWrap" style="display:none; margin-top:10px;">
+                <input type="text" id="otraLicenciatura" placeholder="Escribe el nombre de tu licenciatura">
+                <div class="error" id="err-otra-lic"></div>
+              </div>
             </div>
           </div>
 
@@ -505,8 +519,18 @@ window.addEventListener('DOMContentLoaded', () => {
 const regForm = document.getElementById('regForm');
 const submitBtn = document.getElementById('submitBtn');
 
+const licenciaturaSelect = document.getElementById('licenciatura');
+const otraLicWrap = document.getElementById('otraLicWrap');
+const otraLicenciaturaInput = document.getElementById('otraLicenciatura');
+
+licenciaturaSelect.addEventListener('change', () => {
+  const isOtra = licenciaturaSelect.value === 'Otra';
+  otraLicWrap.style.display = isOtra ? '' : 'none';
+  if(!isOtra){ otraLicenciaturaInput.value = ''; document.getElementById('err-otra-lic').textContent = ''; }
+});
+
 function clearErrors(){
-  ['nombre','anio','lic','sede','correo','tel'].forEach(k => {
+  ['nombre','anio','lic','otra-lic','sede','correo','tel'].forEach(k => {
     document.getElementById('err-'+k).textContent = '';
   });
 }
@@ -516,7 +540,8 @@ function validate(){
   let ok = true;
   const nombre = document.getElementById('nombre').value.trim();
   const anio = document.getElementById('anio').value.trim();
-  const lic = document.getElementById('licenciatura').value;
+  let lic = document.getElementById('licenciatura').value;
+  const otraLic = otraLicenciaturaInput.value.trim();
   const sede = document.getElementById('sede').value;
   const correo = document.getElementById('correo').value.trim();
   const tel = document.getElementById('telefono').value.trim();
@@ -533,6 +558,14 @@ function validate(){
   if(!lic){
     document.getElementById('err-lic').textContent = 'Selecciona tu licenciatura.';
     ok = false;
+  }
+  if(lic === 'Otra'){
+    if(otraLic.length < 3){
+      document.getElementById('err-otra-lic').textContent = 'Escribe el nombre de tu licenciatura.';
+      ok = false;
+    }else{
+      lic = otraLic;
+    }
   }
   if(!sede){
     document.getElementById('err-sede').textContent = 'Selecciona tu sede.';
@@ -597,6 +630,7 @@ function showConfirmation(folio, nombre){
   `;
   document.getElementById('againBtn').onclick = () => {
     regForm.reset();
+    otraLicWrap.style.display = 'none';
     submitBtn.disabled = false;
     submitBtn.textContent = 'Enviar registro';
     document.getElementById('formInner').style.display = '';
