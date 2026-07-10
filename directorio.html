@@ -430,27 +430,20 @@
     </div>
 
     <div id="viewAdmin" class="card" style="display:none;">
-      <div id="adminLock" class="lock">
+      <div class="lock">
         <p class="form-title">Panel administrativo</p>
-        <p class="form-desc" style="margin:0 auto 18px;">Acceso para el equipo de sistematización de datos.</p>
-        <input type="password" id="adminPass" placeholder="Clave de acceso">
-        <button class="submit" id="adminEnter">Entrar</button>
-        <p class="error" id="adminErr" style="text-align:center;"></p>
-        <p class="hint" style="margin-top:16px;">Clave por defecto: <b>ENEL2026</b> (puede cambiarse en el código fuente).</p>
-      </div>
-      <div id="adminPanel" style="display:none;">
-        <p class="form-title">Directorio de egresados</p>
-        <div class="stats" id="stats"></div>
-        <p class="timeline-title" style="margin-top:6px;">Registros por licenciatura</p>
-        <div class="barchart" id="licChart"></div>
-        <div class="toolbar">
-          <span class="hint" id="countLabel"></span>
-          <div>
-            <button id="refreshBtn">Actualizar</button>
-            <button id="exportBtn">Exportar CSV</button>
-          </div>
-        </div>
-        <div id="tableWrap"></div>
+        <p class="form-desc" style="margin:0 auto 18px;">
+          Los registros se guardan directamente en la hoja de cálculo de Google Sheets
+          vinculada a este formulario. Por seguridad, el directorio completo ya no se
+          muestra ni se descarga desde esta página pública: solo el equipo de
+          sistematización de datos con acceso a esa hoja puede consultarlo, filtrarlo
+          o exportarlo.
+        </p>
+        <a class="submit" style="display:inline-block; text-decoration:none;" id="sheetLink" href="#" target="_blank" rel="noopener">Abrir hoja de Google Sheets</a>
+        <p class="hint" style="margin-top:16px;">
+          Si aún no tienes el enlace de la hoja, pídelo a quien administra el
+          Apps Script (<code>SHEETS_WEBHOOK_URL</code> en el código fuente).
+        </p>
       </div>
     </div>
 
@@ -458,8 +451,6 @@
   </div>
 
 <script>
-const ADMIN_PASS = "ENEL2026";
-const STORAGE_PREFIX = "egresado:";
 const SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw38TjnnN4JkSDgx9XExYZPp2U07MG3ypIXDBXDGCcRjcaWsN3X8F1VO0Dm7phaUyv7/exec";
 
 function sendToGoogleSheets(entry){
@@ -487,22 +478,12 @@ function setTab(which){
   tabAdmin.classList.toggle('active', !isForm);
   viewForm.style.display = isForm ? '' : 'none';
   viewAdmin.style.display = isForm ? 'none' : '';
-  if(!isForm && document.getElementById('adminPanel').style.display !== 'none'){
-    loadAdminData();
-  }
 }
 
-// ---------- FOLIO COUNTER ----------
-async function getNextFolio(){
-  try{
-    const res = await window.storage.get('folio-counter', true);
-    return res ? parseInt(res.value, 10) + 1 : 1;
-  }catch(e){
-    return 1;
-  }
-}
-async function setFolio(n){
-  try{ await window.storage.set('folio-counter', String(n), true); }catch(e){}
+// ---------- FOLIO (solo para mostrar al egresado; el folio real/definitivo
+// lo determina el número de fila en la hoja de Google Sheets) ----------
+function generateFolio(){
+  return Number(String(Date.now()).slice(-6));
 }
 
 // ---------- MODAL DE BIENVENIDA ----------
@@ -592,26 +573,23 @@ regForm.addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = 'Enviando...';
 
+  const folio = generateFolio();
+  const entry = {
+    folio,
+    nombre: data.nombre,
+    anio: data.anio,
+    licenciatura: data.lic,
+    sede: data.sede,
+    correo: data.correo,
+    telefono: data.tel,
+    fecha: new Date().toISOString()
+  };
+
   try{
-    const folio = await getNextFolio();
-    const entry = {
-      folio,
-      nombre: data.nombre,
-      anio: data.anio,
-      licenciatura: data.lic,
-      sede: data.sede,
-      correo: data.correo,
-      telefono: data.tel,
-      fecha: new Date().toISOString()
-    };
-    const key = STORAGE_PREFIX + folio + '-' + Date.now();
-    const res = await window.storage.set(key, JSON.stringify(entry), true);
-    if(!res) throw new Error('No se pudo guardar');
-    await setFolio(folio);
-    try{ await sendToGoogleSheets(entry); }catch(sheetErr){ /* no bloquea el registro si falla el envío a Sheets */ }
+    await sendToGoogleSheets(entry);
     showConfirmation(folio, data.nombre);
   }catch(err){
-    alert('Ocurrió un problema al guardar tu registro. Intenta de nuevo en unos segundos.');
+    alert('Ocurrió un problema al guardar tu registro. Verifica tu conexión a internet e intenta de nuevo en unos segundos.');
     submitBtn.disabled = false;
     submitBtn.textContent = 'Enviar registro';
   }
@@ -643,135 +621,19 @@ function escapeHtml(str){
 }
 
 // ---------- ADMIN ----------
-document.getElementById('adminEnter').onclick = () => {
-  const val = document.getElementById('adminPass').value;
-  if(val === ADMIN_PASS){
-    document.getElementById('adminLock').style.display = 'none';
-    document.getElementById('adminPanel').style.display = '';
-    loadAdminData();
-  }else{
-    document.getElementById('adminErr').textContent = 'Clave incorrecta.';
-  }
-};
-
-document.getElementById('refreshBtn').onclick = loadAdminData;
-
-let cachedEntries = [];
-
-async function loadAdminData(){
-  const tableWrap = document.getElementById('tableWrap');
-  tableWrap.innerHTML = '<p class="empty">Cargando...</p>';
-  try{
-    const list = await window.storage.list(STORAGE_PREFIX, true);
-    const keys = (list && list.keys) ? list.keys : [];
-    const entries = [];
-    for(const k of keys){
-      try{
-        const r = await window.storage.get(k, true);
-        if(r && r.value){
-          entries.push(JSON.parse(r.value));
-        }
-      }catch(e){ /* skip unreadable key */ }
-    }
-    entries.sort((a,b) => (b.folio||0) - (a.folio||0));
-    cachedEntries = entries;
-    renderStats(entries);
-    renderLicChart(entries);
-    renderTable(entries);
-  }catch(e){
-    tableWrap.innerHTML = '<p class="empty">No se pudo cargar el directorio. Intenta actualizar de nuevo.</p>';
-  }
-}
-
-function renderStats(entries){
-  const total = entries.length;
-  const years = new Set(entries.map(e => e.anio)).size;
-  const lics = new Set(entries.map(e => e.licenciatura)).size;
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="n">${total}</div><div class="l">Egresados registrados</div></div>
-    <div class="stat"><div class="n">${years}</div><div class="l">Generaciones distintas</div></div>
-    <div class="stat"><div class="n">${lics}</div><div class="l">Licenciaturas representadas</div></div>
-  `;
-  document.getElementById('countLabel').textContent = total + ' registro(s) en total';
-}
-
-function renderLicChart(entries){
-  const counts = {};
-  entries.forEach(e => {
-    const lic = e.licenciatura || 'Sin especificar';
-    counts[lic] = (counts[lic]||0) + 1;
-  });
-  const chart = document.getElementById('licChart');
-  const items = Object.entries(counts);
-  if(items.length === 0){
-    chart.innerHTML = '<p class="empty" style="padding:10px 0;">Sin datos aún.</p>';
-    return;
-  }
-  const max = Math.max(...items.map(i => i[1]));
-  chart.innerHTML = items.map(([lic,count]) => {
-    const short = lic
-      .replace('Licenciatura en la Enseñanza y Aprendizaje de la ','')
-      .replace('Licenciatura en la Enseñanza y Aprendizaje del ','')
-      .replace('Licenciatura en la Enseñanza y Aprendizaje de las ','')
-      .replace('Licenciatura en Educación ','')
-      .replace('Licenciatura en ','');
-    const h = Math.max(4, Math.round((count/max) * 96));
-    return `<div class="col" title="${escapeHtml(lic)}: ${count}">
-      <div class="b" style="height:0px" data-h="${h}"></div>
-      <div class="cap">${escapeHtml(short.slice(0,10))}</div>
-    </div>`;
-  }).join('');
-  requestAnimationFrame(() => {
-    chart.querySelectorAll('.b').forEach(b => { b.style.height = b.dataset.h + 'px'; });
+// Pon aquí el enlace real de tu hoja de Google Sheets (Compartir -> Cualquiera
+// con el enlace -> Restringido a tu organización si es posible). Si lo dejas
+// vacío, el botón simplemente no hará nada.
+const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ST_NFiPC5XLMXc0gF8LAIQV5fEHGsTkMDFwQz5nlTIY/edit?gid=0#gid=0";
+const sheetLink = document.getElementById('sheetLink');
+if(GOOGLE_SHEET_URL){
+  sheetLink.href = GOOGLE_SHEET_URL;
+}else{
+  sheetLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    alert('Aún no se ha configurado el enlace a la hoja de Google Sheets. Edita la constante GOOGLE_SHEET_URL en el código fuente.');
   });
 }
-
-function renderTable(entries){
-  const wrap = document.getElementById('tableWrap');
-  if(entries.length === 0){
-    wrap.innerHTML = '<p class="empty">Aún no hay registros. Comparte el enlace del formulario con los egresados.</p>';
-    return;
-  }
-  let rows = entries.map(e => `
-    <tr>
-      <td>#${String(e.folio).padStart(4,'0')}</td>
-      <td>${escapeHtml(e.nombre||'')}</td>
-      <td>${e.anio||''}</td>
-      <td>${escapeHtml(e.licenciatura||'')}</td>
-      <td>${escapeHtml(e.sede||'')}</td>
-      <td>${escapeHtml(e.correo||'')}</td>
-      <td>${escapeHtml(e.telefono||'')}</td>
-    </tr>
-  `).join('');
-  wrap.innerHTML = `
-    <div class="table-scroll">
-      <table>
-        <thead><tr>
-          <th>Folio</th><th>Nombre</th><th>Año</th><th>Licenciatura</th><th>Sede</th><th>Correo</th><th>Teléfono</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  `;
-}
-
-document.getElementById('exportBtn').onclick = () => {
-  if(cachedEntries.length === 0){ alert('No hay datos para exportar.'); return; }
-  const header = ['Folio','Nombre','Anio','Licenciatura','Sede','Correo','Telefono','Fecha de registro'];
-  const rows = cachedEntries.map(e => [
-    e.folio, e.nombre, e.anio, e.licenciatura, e.sede, e.correo, e.telefono, e.fecha
-  ]);
-  const csv = [header, ...rows].map(r =>
-    r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')
-  ).join('\n');
-  const blob = new Blob(["\ufeff" + csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'egresados_ENEL.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-};
 </script>
 </body>
 </html>
