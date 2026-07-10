@@ -446,6 +446,18 @@
 <script>
 const ADMIN_PASS = "ENEL2026";
 const STORAGE_PREFIX = "egresado:";
+const SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw38TjnnN4JkSDgx9XExYZPp2U07MG3ypIXDBXDGCcRjcaWsN3X8F1VO0Dm7phaUyv7/exec";
+
+function sendToGoogleSheets(entry){
+  // Envío "fire and forget": Apps Script no siempre responde con encabezados CORS legibles,
+  // así que usamos no-cors y no dependemos de leer la respuesta.
+  return fetch(SHEETS_WEBHOOK_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(entry)
+  });
+}
 
 const tabForm = document.getElementById('tabForm');
 const tabAdmin = document.getElementById('tabAdmin');
@@ -563,6 +575,7 @@ regForm.addEventListener('submit', async (e) => {
     const res = await window.storage.set(key, JSON.stringify(entry), true);
     if(!res) throw new Error('No se pudo guardar');
     await setFolio(folio);
+    try{ await sendToGoogleSheets(entry); }catch(sheetErr){ /* no bloquea el registro si falla el envío a Sheets */ }
     showConfirmation(folio, data.nombre);
   }catch(err){
     alert('Ocurrió un problema al guardar tu registro. Intenta de nuevo en unos segundos.');
