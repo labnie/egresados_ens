@@ -219,7 +219,7 @@
   .barchart .col .cap{font-size:10px; color:var(--muted); font-family:'Space Mono',monospace; white-space:nowrap;}
 
   .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px;}
-  table{width:100%; min-width:640px; border-collapse:collapse; font-size:13px; margin-top:10px;}
+  table{width:100%; min-width:1080px; border-collapse:collapse; font-size:13px; margin-top:10px;}
   th{
     text-align:left; font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase;
     letter-spacing:.05em; color:var(--muted); border-bottom:2px solid var(--ink); padding:8px 8px;
@@ -347,11 +347,6 @@
   </div>
 
   <div class="wrap">
-    <nav>
-      <button id="tabForm" class="active">Registro</button>
-      <button id="tabAdmin">Panel administrativo</button>
-    </nav>
-
     <div id="viewForm" class="card">
       <div id="formInner">
         <p class="form-title">Actualiza tus datos de contacto</p>
@@ -421,6 +416,72 @@
             </div>
           </div>
 
+          <p class="form-title" style="font-size:16px; margin-top:6px;">Información adicional</p>
+          <p class="form-desc" style="margin-bottom:16px;">Estos datos nos ayudan a organizar mejor las actividades del ciclo 2026&ndash;2027.</p>
+
+          <div id="extraFields">
+            <div class="row2">
+              <div class="field">
+                <label for="municipio">Municipio de residencia actual</label>
+                <select id="municipio">
+                  <option value="">Selecciona una opción</option>
+                  <option>La Paz</option>
+                  <option>Comondú</option>
+                  <option>Los Cabos</option>
+                  <option>Loreto</option>
+                  <option>Mulegé</option>
+                  <option>Fuera de Baja California Sur</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="laboraEducacion">¿Laboras actualmente en educación?</label>
+                <select id="laboraEducacion">
+                  <option value="">Selecciona una opción</option>
+                  <option>Sí</option>
+                  <option>No</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row2" id="tipoInstitucionWrap" style="display:none;">
+              <div class="field">
+                <label for="tipoInstitucion">Tipo de institución</label>
+                <select id="tipoInstitucion">
+                  <option value="">Selecciona una opción</option>
+                  <option>Pública</option>
+                  <option>Privada</option>
+                  <option>Ambas</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="centroTrabajo">Institución o centro de trabajo actual</label>
+                <input type="text" id="centroTrabajo" placeholder="Nombre de la institución">
+              </div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label for="posgrado">¿Estudia o estudió algún posgrado?</label>
+                <select id="posgrado">
+                  <option value="">Selecciona una opción</option>
+                  <option>Ninguno</option>
+                  <option>Especialidad</option>
+                  <option>Maestría</option>
+                  <option>Doctorado</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ponente">¿Te interesaría participar como ponente o facilitador?</label>
+                <select id="ponente">
+                  <option value="">Selecciona una opción</option>
+                  <option>Sí</option>
+                  <option>No</option>
+                  <option>Tal vez</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <button type="submit" class="submit" id="submitBtn">Enviar registro</button>
         </form>
         <p class="hint" style="margin-top:16px; text-align:center;">Tus datos se integrarán al directorio institucional de egresados de la Escuela Normal.</p>
@@ -429,28 +490,11 @@
       <div id="confirmInner" class="confirm" style="display:none;"></div>
     </div>
 
-    <div id="viewAdmin" class="card" style="display:none;">
-      <div class="lock">
-        <p class="form-title">Panel administrativo</p>
-        <p class="form-desc" style="margin:0 auto 18px;">
-          Los registros se guardan directamente en la hoja de cálculo de Google Sheets
-          vinculada a este formulario. Por seguridad, el directorio completo ya no se
-          muestra ni se descarga desde esta página pública: solo el equipo de
-          sistematización de datos con acceso a esa hoja puede consultarlo, filtrarlo
-          o exportarlo.
-        </p>
-        <a class="submit" style="display:inline-block; text-decoration:none;" id="sheetLink" href="#" target="_blank" rel="noopener">Abrir hoja de Google Sheets</a>
-        <p class="hint" style="margin-top:16px;">
-          Si aún no tienes el enlace de la hoja, pídelo a quien administra el
-          Apps Script (<code>SHEETS_WEBHOOK_URL</code> en el código fuente).
-        </p>
-      </div>
-    </div>
-
     <footer>Directorio de Egresados &middot; ENS "Profr. Enrique Estrada Lucero" &middot; La Paz, B.C.S.</footer>
   </div>
 
 <script>
+const STORAGE_PREFIX = "egresado:";
 const SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw38TjnnN4JkSDgx9XExYZPp2U07MG3ypIXDBXDGCcRjcaWsN3X8F1VO0Dm7phaUyv7/exec";
 
 function sendToGoogleSheets(entry){
@@ -464,26 +508,17 @@ function sendToGoogleSheets(entry){
   });
 }
 
-const tabForm = document.getElementById('tabForm');
-const tabAdmin = document.getElementById('tabAdmin');
-const viewForm = document.getElementById('viewForm');
-const viewAdmin = document.getElementById('viewAdmin');
-
-tabForm.onclick = () => { setTab('form'); };
-tabAdmin.onclick = () => { setTab('admin'); };
-
-function setTab(which){
-  const isForm = which === 'form';
-  tabForm.classList.toggle('active', isForm);
-  tabAdmin.classList.toggle('active', !isForm);
-  viewForm.style.display = isForm ? '' : 'none';
-  viewAdmin.style.display = isForm ? 'none' : '';
+// ---------- FOLIO COUNTER ----------
+async function getNextFolio(){
+  try{
+    const res = await window.storage.get('folio-counter', true);
+    return res ? parseInt(res.value, 10) + 1 : 1;
+  }catch(e){
+    return 1;
+  }
 }
-
-// ---------- FOLIO (solo para mostrar al egresado; el folio real/definitivo
-// lo determina el número de fila en la hoja de Google Sheets) ----------
-function generateFolio(){
-  return Number(String(Date.now()).slice(-6));
+async function setFolio(n){
+  try{ await window.storage.set('folio-counter', String(n), true); }catch(e){}
 }
 
 // ---------- MODAL DE BIENVENIDA ----------
@@ -510,6 +545,12 @@ licenciaturaSelect.addEventListener('change', () => {
   if(!isOtra){ otraLicenciaturaInput.value = ''; document.getElementById('err-otra-lic').textContent = ''; }
 });
 
+const laboraEducacionSelect = document.getElementById('laboraEducacion');
+const tipoInstitucionWrap = document.getElementById('tipoInstitucionWrap');
+laboraEducacionSelect.addEventListener('change', () => {
+  tipoInstitucionWrap.style.display = laboraEducacionSelect.value === 'Sí' ? '' : 'none';
+});
+
 function clearErrors(){
   ['nombre','anio','lic','otra-lic','sede','correo','tel'].forEach(k => {
     document.getElementById('err-'+k).textContent = '';
@@ -526,6 +567,14 @@ function validate(){
   const sede = document.getElementById('sede').value;
   const correo = document.getElementById('correo').value.trim();
   const tel = document.getElementById('telefono').value.trim();
+
+  // Campos adicionales opcionales
+  const municipio = document.getElementById('municipio').value;
+  const laboraEducacion = laboraEducacionSelect.value;
+  const tipoInstitucion = document.getElementById('tipoInstitucion').value;
+  const centroTrabajo = document.getElementById('centroTrabajo').value.trim();
+  const posgrado = document.getElementById('posgrado').value;
+  const ponente = document.getElementById('ponente').value;
 
   if(nombre.length < 3){
     document.getElementById('err-nombre').textContent = 'Escribe tu nombre completo.';
@@ -562,7 +611,10 @@ function validate(){
     document.getElementById('err-tel').textContent = 'Si lo incluyes, ingresa un teléfono a 10 dígitos.';
     ok = false;
   }
-  return ok ? {nombre, anio: yearNum, lic, sede, correo, tel} : null;
+  return ok ? {
+    nombre, anio: yearNum, lic, sede, correo, tel,
+    municipio, laboraEducacion, tipoInstitucion, centroTrabajo, posgrado, ponente
+  } : null;
 }
 
 regForm.addEventListener('submit', async (e) => {
@@ -573,23 +625,32 @@ regForm.addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = 'Enviando...';
 
-  const folio = generateFolio();
-  const entry = {
-    folio,
-    nombre: data.nombre,
-    anio: data.anio,
-    licenciatura: data.lic,
-    sede: data.sede,
-    correo: data.correo,
-    telefono: data.tel,
-    fecha: new Date().toISOString()
-  };
-
   try{
-    await sendToGoogleSheets(entry);
+    const folio = await getNextFolio();
+    const entry = {
+      folio,
+      nombre: data.nombre,
+      anio: data.anio,
+      licenciatura: data.lic,
+      sede: data.sede,
+      correo: data.correo,
+      telefono: data.tel,
+      municipio: data.municipio,
+      laboraEducacion: data.laboraEducacion,
+      tipoInstitucion: data.tipoInstitucion,
+      centroTrabajo: data.centroTrabajo,
+      posgrado: data.posgrado,
+      ponente: data.ponente,
+      fecha: new Date().toISOString()
+    };
+    const key = STORAGE_PREFIX + folio + '-' + Date.now();
+    const res = await window.storage.set(key, JSON.stringify(entry), true);
+    if(!res) throw new Error('No se pudo guardar');
+    await setFolio(folio);
+    try{ await sendToGoogleSheets(entry); }catch(sheetErr){ /* no bloquea el registro si falla el envío a Sheets */ }
     showConfirmation(folio, data.nombre);
   }catch(err){
-    alert('Ocurrió un problema al guardar tu registro. Verifica tu conexión a internet e intenta de nuevo en unos segundos.');
+    alert('Ocurrió un problema al guardar tu registro. Intenta de nuevo en unos segundos.');
     submitBtn.disabled = false;
     submitBtn.textContent = 'Enviar registro';
   }
@@ -609,6 +670,7 @@ function showConfirmation(folio, nombre){
   document.getElementById('againBtn').onclick = () => {
     regForm.reset();
     otraLicWrap.style.display = 'none';
+    tipoInstitucionWrap.style.display = 'none';
     submitBtn.disabled = false;
     submitBtn.textContent = 'Enviar registro';
     document.getElementById('formInner').style.display = '';
@@ -620,20 +682,6 @@ function escapeHtml(str){
   return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// ---------- ADMIN ----------
-// Pon aquí el enlace real de tu hoja de Google Sheets (Compartir -> Cualquiera
-// con el enlace -> Restringido a tu organización si es posible). Si lo dejas
-// vacío, el botón simplemente no hará nada.
-const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ST_NFiPC5XLMXc0gF8LAIQV5fEHGsTkMDFwQz5nlTIY/edit?gid=0#gid=0";
-const sheetLink = document.getElementById('sheetLink');
-if(GOOGLE_SHEET_URL){
-  sheetLink.href = GOOGLE_SHEET_URL;
-}else{
-  sheetLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    alert('Aún no se ha configurado el enlace a la hoja de Google Sheets. Edita la constante GOOGLE_SHEET_URL en el código fuente.');
-  });
-}
 </script>
 </body>
 </html>
