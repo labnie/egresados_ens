@@ -197,7 +197,7 @@
     100%{ transform:scale(1) rotate(-4deg); opacity:1; }
   }
   .confirm .folio-big{
-    font-family:'Lora',serif; font-size:40px; color:var(--ink-deep); margin:6px 0 2px; font-weight:700;
+    font-family:'Lora',serif; font-size:clamp(24px,6vw,36px); color:var(--ink-deep); margin:6px 0 2px; font-weight:700; letter-spacing:.01em;
   }
   .confirm p{color:var(--muted); font-size:14px; max-width:46ch; margin:14px auto 0; line-height:1.6;}
   .confirm button{
@@ -494,7 +494,6 @@
   </div>
 
 <script>
-const STORAGE_PREFIX = "egresado:";
 const SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw38TjnnN4JkSDgx9XExYZPp2U07MG3ypIXDBXDGCcRjcaWsN3X8F1VO0Dm7phaUyv7/exec";
 
 function sendToGoogleSheets(entry){
@@ -508,17 +507,17 @@ function sendToGoogleSheets(entry){
   });
 }
 
-// ---------- FOLIO COUNTER ----------
-async function getNextFolio(){
-  try{
-    const res = await window.storage.get('folio-counter', true);
-    return res ? parseInt(res.value, 10) + 1 : 1;
-  }catch(e){
-    return 1;
-  }
-}
-async function setFolio(n){
-  try{ await window.storage.set('folio-counter', String(n), true); }catch(e){}
+// ---------- FOLIO ----------
+// Se genera en el navegador (fecha + un componente aleatorio), sin depender de
+// ningún almacenamiento externo. El orden real de los registros queda en la
+// hoja de Google Sheets, donde cada fila se agrega en el momento en que llega.
+function generarFolio(){
+  const fecha = new Date();
+  const yy = String(fecha.getFullYear()).slice(-2);
+  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dd = String(fecha.getDate()).padStart(2, '0');
+  const rand = Math.floor(Math.random() * 900 + 100); // 3 dígitos aleatorios
+  return `${yy}${mm}${dd}-${rand}`;
 }
 
 // ---------- MODAL DE BIENVENIDA ----------
@@ -626,7 +625,7 @@ regForm.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Enviando...';
 
   try{
-    const folio = await getNextFolio();
+    const folio = generarFolio();
     const entry = {
       folio,
       nombre: data.nombre,
@@ -643,14 +642,10 @@ regForm.addEventListener('submit', async (e) => {
       ponente: data.ponente,
       fecha: new Date().toISOString()
     };
-    const key = STORAGE_PREFIX + folio + '-' + Date.now();
-    const res = await window.storage.set(key, JSON.stringify(entry), true);
-    if(!res) throw new Error('No se pudo guardar');
-    await setFolio(folio);
-    try{ await sendToGoogleSheets(entry); }catch(sheetErr){ /* no bloquea el registro si falla el envío a Sheets */ }
+    await sendToGoogleSheets(entry);
     showConfirmation(folio, data.nombre);
   }catch(err){
-    alert('Ocurrió un problema al guardar tu registro. Intenta de nuevo en unos segundos.');
+    alert('Ocurrió un problema al enviar tu registro. Revisa tu conexión e intenta de nuevo en unos segundos.');
     submitBtn.disabled = false;
     submitBtn.textContent = 'Enviar registro';
   }
@@ -663,7 +658,7 @@ function showConfirmation(folio, nombre){
   c.innerHTML = `
     <div class="stamp">Registro recibido</div>
     <div class="hint">Folio de registro</div>
-    <div class="folio-big">#${String(folio).padStart(4,'0')}</div>
+    <div class="folio-big">#${folio}</div>
     <p>Gracias, ${escapeHtml(nombre)}. Tu información quedó integrada al directorio de egresados. Te contactaremos por correo o teléfono con las novedades del ciclo 2026&ndash;2027.</p>
     <button id="againBtn">Registrar a otra persona</button>
   `;
